@@ -2,24 +2,19 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<!-- [修正] ズームを禁止し、アプリライクな操作感を保証 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>家計簿電卓 Pro</title>
 
-<!-- PWA設定 -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#3b82f6">
-<!-- [追加] iOS(iPhone)用のアプリアイコン指定 -->
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 
 <style>
-  /* [追加] touch-action: manipulation; で連打時のズームをCSSでも防止 */
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; padding: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; touch-action: manipulation; }
   .calculator, .ledger { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; }
   #display { width: 100%; height: 50px; font-size: 28px; text-align: right; margin-bottom: 10px; border: 2px solid #3b82f6; border-radius: 6px; padding: 5px 10px; box-sizing: border-box; background: #f1f5f9; }
   .buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   
-  /* ボタンのデザイン微調整（より押しやすく） */
   button { padding: 15px; cursor: pointer; border: none; border-radius: 8px; background: #e2e8f0; font-size: 18px; transition: 0.1s; }
   button:active { transform: scale(0.95); background: #cbd5e1; }
   
@@ -27,6 +22,12 @@
   .btn-record:active { background: #059669; }
   .custom-input { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 16px; }
   .history-item { display:flex; justify-content:space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #cbd5e1; }
+
+  /* 【新規】親切インフォメーションのスタイル */
+  .info-box { margin-top: 15px; background: #eff6ff; padding: 10px; border-radius: 8px; border: 1px solid #bfdbfe; font-size: 12px; color: #1e3a8a; line-height: 1.4; }
+  .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 5px; }
+  .status-web { background: #fef3c7; color: #92400e; }
+  .status-app { background: #dcfce7; color: #166534; }
 </style>
 </head>
 <body>
@@ -35,35 +36,32 @@
   <h3>🧮 計算機</h3>
   <input type="text" id="display" value="0" oninput="this.value = this.value.replace(/[^0-9+\-*/.]/g, '')">
   <div class="buttons">
-    <!-- [修正] グリッド配置を完璧な実務電卓スタイルに再構築 -->
-    <!-- 1行目 -->
     <button onclick="clearDisplay()" style="background:#ef4444; color:white;">C</button>
     <button onclick="append('/')">÷</button>
     <button onclick="append('*')">×</button>
     <button onclick="append('-')">-</button>
     
-    <!-- 2行目 -->
     <button onclick="append('7')">7</button>
     <button onclick="append('8')">8</button>
     <button onclick="append('9')">9</button>
     <button onclick="append('+')" style="grid-row: span 2; background:#94a3b8; font-weight:bold;">+</button>
     
-    <!-- 3行目 -->
     <button onclick="append('4')">4</button>
     <button onclick="append('5')">5</button>
     <button onclick="append('6')">6</button>
-    <!-- 4列目は上の「+」が占有 -->
     
-    <!-- 4行目 -->
     <button onclick="append('1')">1</button>
     <button onclick="append('2')">2</button>
     <button onclick="append('3')">3</button>
     <button onclick="calculate()" style="grid-row: span 2; background:#3b82f6; color:white; font-weight:bold; font-size: 24px;">=</button>
     
-    <!-- 5行目 -->
     <button onclick="append('0')" style="grid-column: span 2;">0</button>
     <button onclick="append('.')">.</button>
-    <!-- 4列目は上の「=」が占有 -->
+  </div>
+
+  <div class="info-box">
+    <div id="pwa-status"></div>
+    <div id="pwa-guide"></div>
   </div>
 </div>
 
@@ -131,7 +129,7 @@
     records.forEach((r, i) => {
       const val = r.type === 'income' ? r.amount : -r.amount;
       total += val;
-      const color = r.type === 'income' ? '#2563eb' : '#dc2626'; // 収入は青、支出は赤
+      const color = r.type === 'income' ? '#2563eb' : '#dc2626';
       
       list.innerHTML += `
         <li class="history-item">
@@ -152,9 +150,26 @@
     updateUI(); 
   }
   
-  updateUI();
+  // 【新規】ユーザーの状態を判別して案内を書き換える「親切システム」
+  function initPwaGuide() {
+    const statusDiv = document.getElementById('pwa-status');
+    const guideDiv = document.getElementById('pwa-guide');
+    
+    // アプリとして独立起動しているか判定
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    
+    if (isStandalone) {
+      statusDiv.innerHTML = '<span class="status-badge status-app">📱 アプリモード動作中</span>';
+      guideDiv.innerText = '専用アプリとして完全に独立しています。キャッシュ削除の影響を受けず、データは安全です！';
+    } else {
+      statusDiv.innerHTML = '<span class="status-badge status-web">🌐 ブラウザ閲覧モード</span>';
+      guideDiv.innerHTML = '⚠️重要：ブラウザの履歴を消すとデータが消える恐れがあります。データを守るため、Brave等のセキュアなブラウザのメニューから<strong>【ホーム画面に追加（インストール）】</strong>して専用アプリとしてお使いください。';
+    }
+  }
 
-  // PWA Service Worker
+  updateUI();
+  initPwaGuide(); // 案内板の起動
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(err => console.log("SW登録失敗:", err));
   }
