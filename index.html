@@ -77,7 +77,9 @@
   </select>
   <input type="text" id="custom-category" class="custom-input" placeholder="独自項目を書き込む（任意）">
   <button class="btn-record" onclick="recordEntry()">記録する</button>
-  
+  <button onclick="exportData()" style="background:#64748b; color:white; width:100%; padding:10px; border-radius:6px; margin-top:10px;">
+  💾 データをテキスト保存する
+</button>
   <ul id="history-list" style="list-style:none; padding:0; margin-top:20px; max-height:200px; overflow-y:auto;"></ul>
   <div style="font-weight:bold; text-align:right; font-size:1.3em; margin-top:15px; border-top:2px solid #334155; padding-top:10px;">
     収支合計: ¥<span id="total-amount">0</span>
@@ -173,6 +175,30 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(err => console.log("SW登録失敗:", err));
   }
+  function exportData() {
+  const records = localStorage.getItem('my_kakeibo_data');
+  if (!records) {
+    alert("保存されているデータがありません。");
+    return;
+  }
+
+  // テキスト形式に整形（見やすく改行）
+  const data = JSON.parse(records);
+  let text = "--- 家計簿データ ---\n";
+  data.forEach(r => {
+    text += `${r.category}: ${r.type === 'income' ? '+' : '-'}${r.amount}\n`;
+  });
+  text += `\n合計収支: ${document.getElementById('total-amount').innerText}`;
+
+  // ダウンロード処理
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'kakeibo_data.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 </script>
 </body>
 </html>
